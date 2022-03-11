@@ -28,6 +28,7 @@ let phonebook = [
   },
 ];
 
+
 app.use(express.json());
 app.use(cors());
 
@@ -52,6 +53,8 @@ app.use(
   )
 );
 //###########################################################<end> MORGAN LOGGING
+
+app.use(express.static('build'))
 
 //###########################################################<start> API CALLS
 const generateId = () => Math.floor(Math.random() * 100000);
