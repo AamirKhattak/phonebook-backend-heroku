@@ -1,8 +1,13 @@
 const express = require("express");
 var morgan = require("morgan");
 const cors = require("cors");
-require('dotenv').config();
+require("dotenv").config();
+const Phonebook = require("./models/phonebook");
 
+/**
+ * TODO: HEROKU configuration to be check after completion of all the excercise
+ * TODO: 3.16 3.16: Phonebook database, step4
+ */
 const app = express();
 
 let phonebook = [
@@ -28,12 +33,11 @@ let phonebook = [
   },
 ];
 
-
 app.use(express.json());
 app.use(cors());
 
-//###########################################################<start> MORGAN LOGGING
-//using tiny config, for all methods except POST
+// ###########################################################<start> MORGAN
+// LOGGING using tiny config, for all methods except POST
 app.use(
   morgan("tiny", {
     skip: (req, res) => req.method === "POST",
@@ -52,11 +56,9 @@ app.use(
     }
   )
 );
-//###########################################################<end> MORGAN LOGGING
-
-app.use(express.static('build'))
-
-//###########################################################<start> API CALLS
+// ###########################################################<end> MORGAN
+// LOGGING ###########################################################<start>
+// API CALLS
 const generateId = () => Math.floor(Math.random() * 100000);
 
 app.get("/", (req, res) => {
@@ -64,46 +66,66 @@ app.get("/", (req, res) => {
 });
 
 app.get("/info", (req, res) => {
-  res.send(
-    `Phonebook has info for ${phonebook.length} people <br/><br/> ${new Date()}`
-  );
+  Phonebook.find({}).then((phonebook) => {
+    res.send(`Phonebook has info for ${phonebook.length} people <br/><br/> ${new Date()}`);
+  });
 });
 
 app.get("/api/persons", (req, res) => {
-  res.json(phonebook);
+  Phonebook.find({}).then((phonebook) => {
+    res.json(phonebook);
+  });
 });
 
-app.get("/api/persons/:id", (req, res) => {
-  const id = Number(req.params.id);
-  const personFound = phonebook.find((per) => per.id === id);
-  if (!personFound) return res.status(404).end();
+app.get("/api/persons/:id", (req, res, next) => {
+  const id = req.params.id;
 
-  res.json(personFound);
+  Phonebook.findById(id)
+    .then((person) => {
+      if (person) res.json(person);
+      else res.status(404).end();
+    })
+    .catch((err) => next(err));
 });
 
-app.delete("/api/persons/:id", (req, res) => {
-  const id = Number(req.params.id);
-  phonebook = phonebook.filter((per) => per.id !== id);
-  res.status(204).end();
+app.delete("/api/persons/:id", (req, res, next) => {
+  const id = req.params.id;
+  Phonebook.findByIdAndRemove(id)
+    .then((result) => {
+      res.status(204).end();
+    })
+    .catch((error) => next(error));
 });
 
 app.post("/api/persons", (req, res) => {
   const body = req.body;
   if (!(body.name && body.number)) {
     return res.status(400).json({ error: "name or number is missing" });
-  } else if (phonebook.find((per) => per.name === body.name)) {
-    return res
-      .status(400)
-      .json({ error: "name already exists in the phonebook" });
+  }
+  // else if (phonebook.find((per) => per.name === body.name)) {     return res
+  // .status(400)         .json({error: "name already exists in the phonebook"});
+  // }
+
+  const newPerson = new Phonebook({ name: body.name, number: body.number });
+
+  newPerson.save().then((savedPerson) => res.json(savedPerson));
+});
+
+app.put("/api/persons/:id", (req, res, next) => {
+  const body = req.body;
+  if (!(body.name && body.number)) {
+    return res.status(400).json({ error: "name or number is missing" });
   }
 
-  const newPerson = {
-    name: body.name,
+  const persons = {
     number: body.number,
-    id: generateId(),
   };
-  phonebook = phonebook.concat(newPerson);
-  res.json(newPerson);
+
+  Phonebook.findByIdAndUpdate(req.params.id, persons, { new: true })
+    .then((updatedPerson) => {
+      res.json(updatedPerson);
+    })
+    .catch((err) => next(err));
 });
 
 const unknownEndpoint = (request, response) => {
@@ -113,8 +135,7 @@ const unknownEndpoint = (request, response) => {
 app.use(unknownEndpoint);
 //###########################################################<end> API CALLS
 
-
-const PORT = process.env.PORT || 3001;
+const PORT = 3001;
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });
