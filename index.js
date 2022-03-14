@@ -59,6 +59,10 @@ app.use(
 // ###########################################################<end> MORGAN
 // LOGGING ###########################################################<start>
 // API CALLS
+
+
+app.use(express.static('build'))
+
 const generateId = () => Math.floor(Math.random() * 100000);
 
 app.get("/", (req, res) => {
