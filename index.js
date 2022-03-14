@@ -4,10 +4,6 @@ const cors = require("cors");
 require("dotenv").config();
 const Phonebook = require("./models/phonebook");
 
-/**
- * TODO: HEROKU configuration to be check after completion of all the excercise
- * TODO: 3.16 3.16: Phonebook database, step4
- */
 const app = express();
 
 let phonebook = [
@@ -60,8 +56,7 @@ app.use(
 // LOGGING ###########################################################<start>
 // API CALLS
 
-
-app.use(express.static('build'))
+app.use(express.static("build"));
 
 const generateId = () => Math.floor(Math.random() * 100000);
 
@@ -71,7 +66,11 @@ app.get("/", (req, res) => {
 
 app.get("/info", (req, res) => {
   Phonebook.find({}).then((phonebook) => {
-    res.send(`Phonebook has info for ${phonebook.length} people <br/><br/> ${new Date()}`);
+    res.send(
+      `Phonebook has info for ${
+        phonebook.length
+      } people <br/><br/> ${new Date()}`
+    );
   });
 });
 
@@ -101,18 +100,30 @@ app.delete("/api/persons/:id", (req, res, next) => {
     .catch((error) => next(error));
 });
 
-app.post("/api/persons", (req, res) => {
+app.post("/api/persons", (req, res, next) => {
   const body = req.body;
   if (!(body.name && body.number)) {
     return res.status(400).json({ error: "name or number is missing" });
   }
-  // else if (phonebook.find((per) => per.name === body.name)) {     return res
-  // .status(400)         .json({error: "name already exists in the phonebook"});
-  // }
 
-  const newPerson = new Phonebook({ name: body.name, number: body.number });
+  Phonebook.findOne({ name: body.name })
+    .then((result) => {
+      console.log(result);
 
-  newPerson.save().then((savedPerson) => res.json(savedPerson));
+      if (result)
+        return res.status(400).json({
+          error: result + " name already exists in the phonebook",
+        });
+
+      const newPerson = new Phonebook({ name: body.name, number: body.number });
+
+      newPerson
+        .save()
+        .then((savedPerson) => res.json(savedPerson))
+        .catch((err) => next(err));
+    })
+    .catch((err) => next(err));
+  console.log("two");
 });
 
 app.put("/api/persons/:id", (req, res, next) => {
@@ -138,6 +149,19 @@ const unknownEndpoint = (request, response) => {
 
 app.use(unknownEndpoint);
 //###########################################################<end> API CALLS
+const errorHandler = (error, request, response, next) => {
+  console.error(error.message);
+
+  if (error.name === "CastError") {
+    return response.status(400).send({ error: "malformatted id" });
+  } else if (error.name === "ValidationError") {
+    return response.status(400).json({ error: error.message });
+  }
+
+  next(error);
+};
+
+app.use(errorHandler);
 
 const PORT = process.env.PORT;
 app.listen(PORT, () => {
